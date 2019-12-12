@@ -83,6 +83,23 @@ func LoadMasterStateTryAll(masters []string, stateLoader func(ip, port string) (
 		return sj, nil
 	}
 
+	logging.Error.Println("No more masters adminroute is ok for state.json query, now request directly from mesos")
+
+	// if cannot fetch state info from adminrouter now fetch from mesos directly
+	for _, master := range masters {
+		ip, port, err = urls.SplitHostPort(master)
+		if err != nil {
+			logging.Error.Println(err)
+			continue
+		}
+		force_port := port + "-"
+		if sj, err = stateLoader(ip, port); err != nil {
+			logging.Error.Println("Failed to fetch state.json - trying next one. Error: ", err)
+			continue
+		}
+		return sj, nil
+	}
+
 	logging.Error.Println("No more masters eligible for state.json query, returning last error")
 	return sj, err
 }
@@ -120,7 +137,15 @@ func LoadMasterStateFailover(initialMasterIP string, stateLoader func(ip string)
 func LoadMasterState(client httpcli.Doer, stateEndpoint urls.Builder, ip, port string, unmarshal Unmarshaler) (sj state.State, _ error) {
 	// REFACTOR: state.json security
 
-	u := url.URL(stateEndpoint.With(urls.Host(net.JoinHostPort(ip, port))))
+	// change state from mesos to dcos adminroute (xiaow10)
+	var u url.URL
+	if strings.HasSuffix(port, "-") {
+		clear_port := port[:len(port) - 1]
+		u := url.URL(stateEndpoint.With(urls.Host(net.JoinHostPort(ip, clear_port))))
+	} else {
+		u := url.URL(stateEndpoint.With(urls.Host(net.JoinHostPort(ip, "80"))) )
+		u.Path = "/mesos/master/state"
+	}
 
 	req, err := http.NewRequest("GET", u.String(), nil)
 	if err != nil {
