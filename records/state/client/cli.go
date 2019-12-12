@@ -92,8 +92,8 @@ func LoadMasterStateTryAll(masters []string, stateLoader func(ip, port string) (
 			logging.Error.Println(err)
 			continue
 		}
-		force_port := port + "-"
-		if sj, err = stateLoader(ip, port); err != nil {
+		portWithTag := port + "-"
+		if sj, err = stateLoader(ip, portWithTag); err != nil {
 			logging.Error.Println("Failed to fetch state.json - trying next one. Error: ", err)
 			continue
 		}
@@ -140,10 +140,10 @@ func LoadMasterState(client httpcli.Doer, stateEndpoint urls.Builder, ip, port s
 	// change state from mesos to dcos adminroute (xiaow10)
 	var u url.URL
 	if strings.HasSuffix(port, "-") {
-		clear_port := port[:len(port) - 1]
-		u := url.URL(stateEndpoint.With(urls.Host(net.JoinHostPort(ip, clear_port))))
+		purePort := port[:len(port)-1]
+		u = url.URL(stateEndpoint.With(urls.Host(net.JoinHostPort(ip, purePort))))
 	} else {
-		u := url.URL(stateEndpoint.With(urls.Host(net.JoinHostPort(ip, "80"))) )
+		u = url.URL(stateEndpoint.With(urls.Host(net.JoinHostPort(ip, "80"))))
 		u.Path = "/mesos/master/state"
 	}
 
